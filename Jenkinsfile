@@ -1,27 +1,19 @@
 pipeline {
-    agent any 
-    tools { 
-        maven 'maven' 
+    agent any
+     tools { 
+        maven 'Maven' 
       
     }
-stages { 
+    stages { 
      
- stage('Preparation') { 
+ stage('checkout') { 
      steps {
-// for display purpose
 
-      // Get some code from a GitHub repository
+            checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bd5d995c-0609-489e-be0d-09a600ea7b92', url: 'https://github.com/haresh-gurram/game-of-life.git']]])
 
-      git 'https://github.com/raknas999/game-of-life.git'
-
-      // Get the Maven tool.
-     
- // ** NOTE: This 'M3' Maven tool must be configured
- 
-     // **       in the global configuration.   
+      
      }
    }
-
    stage('Build') {
        steps {
        // Run the maven build
@@ -34,39 +26,30 @@ stages {
        }
 //}
    }
- 
-  stage('Unit Test Results') {
-      steps {
-      junit '**/target/surefire-reports/TEST-*.xml'
-      
-      }
- }
- stage('Sonarqube') {
+   
+   stage('Sonarqube') {
     environment {
-        scannerHome = tool 'sonarqube'
+        def scannerHome = tool 'sonarqube';
     }
     steps {
-        withSonarQubeEnv('sonarqube') {
+      withSonarQubeEnv('sonarqube') {
             sh "${scannerHome}/bin/sonar-scanner"
         }
         timeout(time: 10, unit: 'MINUTES') {
-            waitForQualityGate abortPipeline: true
+          waitForQualityGate abortPipeline: true
         }
     }
 }
-     stage('Artifact upload') {
-      steps {
-     nexusPublisher nexusInstanceId: '1234', nexusRepositoryId: 'releases', packages: [[$class: 'MavenPackage', mavenAssetList: [[classifier: '', extension: '', filePath: 'gameoflife-web/target/gameoflife.war']], mavenCoordinate: [artifactId: 'gameoflife1', groupId: 'com.wakaleo.gameoflife', packaging: 'war', version: '$BUILD_NUMBER']]]
-      }
- }
- 
+
+   stage('Artifact uploader') {
+       steps{
+nexusPublisher nexusInstanceId: '12345', nexusRepositoryId: '1234', packages: [[$class: 'MavenPackage', mavenAssetList: [[classifier: '', extension: '', filePath: '/var/lib/jenkins/workspace/gol-pipeline-job/gameoflife-web/target/gameoflife.war']], mavenCoordinate: [artifactId: 'gameoflife', groupId: 'com.wakaleo.gameoflife', packaging: 'war', version: '1.0']]]
+           
+       }
 }
-post {
-        success {
-            archiveArtifacts 'gameoflife-web/target/*.war'
-        }
-        failure {
-            mail to:"sankar.dadi@qentelli.com", subject:"FAILURE: ${currentBuild.fullDisplayName}", body: "Build failed"
-        }
-    }       
+
+
+
+
+}
 }
